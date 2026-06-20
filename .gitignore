@@ -1,0 +1,7 @@
+node_modules/
+muqawilati.db
+public/uploads/*
+!public/uploads/.gitkeep
+logs/
+*.log
+.env
