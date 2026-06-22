@@ -987,7 +987,8 @@ async function renderClients() {
   el.innerHTML = filtered.map(c => {
     const prog = c.total_items ? Math.round(c.done_items / c.total_items * 100) : 0;
     const remaining = c.total_contract - c.total_received;
-    return `<div class="client-card" onclick="navigate('client',${c.id})">
+    const cJson = JSON.stringify(c).replace(/"/g,'&quot;');
+    return `<div class="client-card" onclick="navigate('client','${c.id}')">
       <div class="client-avatar">${c.name[0]}</div>
       <div class="client-info" style="flex:1">
         <div class="client-name">${c.name}</div>
@@ -1001,6 +1002,10 @@ async function renderClients() {
         <div class="amount">${fmt(c.total_contract)} ج.م</div>
         <div class="sub" style="color:${remaining>0?'var(--warning)':'var(--success)'}">متبقي: ${fmt(remaining)} ج.م</div>
         <div class="sub">${c.done_items}/${c.total_items} بنود</div>
+        <div style="display:flex;gap:4px;margin-top:8px" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px" onclick="openClientModal(${cJson})">✏️</button>
+          <button class="btn btn-danger btn-sm" style="font-size:11px;padding:4px 8px" onclick="deleteClient('${c.id}')">🗑️</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -1058,6 +1063,10 @@ async function loadClientDetail(id) {
   const totalDone = c.items.filter(it=>it.status==='done').reduce((s,it)=>s+it.unit_price*it.quantity,0);
   const totalPaid = c.payments.reduce((s, p) => s + p.amount, 0);
   const remaining = totalContract - totalPaid;
+  const advPct = parseFloat(c.advance_percentage)||0;
+  const payMethod = c.payment_method || 'installments';
+  const advanceAmt = payMethod==='upfront' ? totalContract : payMethod==='on_completion' ? 0 : (totalContract * advPct / 100);
+  const dueNow = Math.max(0, totalDone - totalPaid);
   const prog = c.total_items ? Math.round(c.done_items / c.total_items * 100) : 0;
 
   document.getElementById('pageTitle').textContent = c.name;
@@ -1125,6 +1134,40 @@ async function loadClientDetail(id) {
       <a href="https://wa.me/2${c.phone.replace(/^0/,'')}?text=${encodeURIComponent(`السلام عليكم ${c.name}،\n\nنود إعلامكم بأنه تم إنجاز بنود بقيمة ${fmt(totalDone)} ج.م.\nالمبلغ المستحق للتحصيل: ${fmt(totalDone - totalPaid)} ج.م\n\nنرجو التواصل لتحديد موعد التحصيل.\nشكراً 🏗️`)}" target="_blank" class="btn btn-wa btn-sm">💬 إشعار واتساب</a>
     </div>` : ''}
     <div class="stats-grid" style="margin-bottom:20px;display:none"><!-- placeholder --></div>
+
+    <!-- Payment Breakdown -->
+    <div class="card mb-16">
+      <div class="card-header"><h3>💰 ملخص الدفعات</h3></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+          <div style="background:var(--primary-light);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">إجمالي العقد</div>
+            <div style="font-size:18px;font-weight:700;color:var(--primary)">${fmt(totalContract)} ج.م</div>
+          </div>
+          ${advanceAmt > 0 ? `<div style="background:var(--warning-light);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">${payMethod==='upfront'?'مقدم كامل':`مقدم ${advPct}%`}</div>
+            <div style="font-size:18px;font-weight:700;color:var(--warning)">${fmt(advanceAmt)} ج.م</div>
+          </div>` : ''}
+          <div style="background:var(--success-light);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">المحصل فعلاً</div>
+            <div style="font-size:18px;font-weight:700;color:var(--success)">${fmt(totalPaid)} ج.م</div>
+          </div>
+          <div style="background:${dueNow>0?'var(--danger-light)':'var(--success-light)'};border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">مستحق التحصيل الآن</div>
+            <div style="font-size:18px;font-weight:700;color:${dueNow>0?'var(--danger)':'var(--success)'}">${fmt(dueNow)} ج.م</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">المتبقي للتحصيل</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text)">${fmt(remaining)} ج.م</div>
+          </div>
+        </div>
+        ${dueNow > 0 && c.phone ? `
+        <div style="margin-top:12px;background:var(--warning-light);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:600;color:#92400e">🔔 يوجد ${fmt(dueNow)} ج.م مستحقة التحصيل</span>
+          <a href="https://wa.me/2${c.phone.replace(/^0/,'')}?text=${encodeURIComponent(`السلام عليكم ${c.name}،\n\nتم إنجاز أعمال بقيمة ${fmt(totalDone)} ج.م\nالمبلغ المستحق للتحصيل: ${fmt(dueNow)} ج.م\n\nنرجو التواصل لتحديد موعد السداد 🏗️`)}" target="_blank" class="btn btn-wa btn-sm">💬 إشعار واتساب</a>
+        </div>` : ''}
+      </div>
+    </div>
 
     <!-- PHASES STEPPER -->
     <div id="clientPhasesSection" class="card mb-16"></div>
@@ -1256,7 +1299,9 @@ async function loadClientPhases(clientId) {
 
   const statusBadge = (s) => `<span style="font-size:11px;font-weight:600;color:${PHASE_STATUS_COLOR[s]||'#888'};background:${PHASE_STATUS_COLOR[s]||'#888'}18;padding:2px 8px;border-radius:20px">${PHASE_STATUS_LABEL[s]||s}</span>`;
 
-  let html = `<div class="card-header"><h3>🔄 مراحل المشروع</h3></div>
+  let html = `<div class="card-header"><h3>🔄 مراحل المشروع</h3>
+    <button class="btn btn-outline btn-sm" onclick="activateAllPhases('${clientId}')" title="فتح الـ3 مراحل دفعة واحدة">⚡ فتح الكل</button>
+  </div>
   <div class="card-body">
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">`;
 
@@ -1275,7 +1320,7 @@ async function loadClientPhases(clientId) {
       ${ph.subtotal ? `<div style="font-size:13px;font-weight:600;color:${meta.color};margin-top:4px">${fmt(ph.subtotal)} ج.م</div>` : ''}
       <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
         ${isNew ? `<button class="btn btn-sm" style="background:${meta.color};color:white;border:none;font-size:12px" onclick="activatePhase('${clientId}','${ph.phase}')">▶ تفعيل</button>` : ''}
-        ${isActive && phaseId ? `<button class="btn btn-sm btn-success" style="font-size:12px" onclick="completePhase('${phaseId}','${clientId}')">✓ إتمام</button>` : ''}
+        ${isActive && phaseId ? `<button class="btn btn-sm btn-success" style="font-size:12px" onclick="completePhase('${phaseId}','${clientId}','${ph.phase}')">✓ إتمام</button>` : ''}
         <button class="btn btn-sm btn-outline" style="font-size:12px" onclick="openItemModal('${clientId}',null,'${ph.phase}')">＋ بند</button>
       </div>
     </div>`;
@@ -1291,11 +1336,29 @@ async function activatePhase(clientId, phase) {
   loadClientPhases(clientId);
 }
 
-async function completePhase(phaseId, clientId) {
-  if (!confirm('هل تريد وضع علامة "مكتملة" على هذه المرحلة؟')) return;
+async function activateAllPhases(clientId) {
+  if (!confirm('هل تريد فتح الـ3 مراحل دفعة واحدة لحساب إجمالي التكلفة الكاملة؟')) return;
+  for (const phase of ['design','study','execution'])
+    await post(`/api/clients/${clientId}/phases/activate`, { phase }).catch(()=>{});
+  toast('تم فتح الـ3 مراحل ✅', 'success');
+  loadClientDetail(clientId);
+}
+
+async function completePhase(phaseId, clientId, currentPhase) {
+  if (!confirm(`هل تم الانتهاء من مرحلة ${PHASE_META[currentPhase]?.label || ''}؟`)) return;
   await put(`/api/client-phases/${phaseId}`, { status: 'completed' });
   toast('تم إتمام المرحلة 🎉', 'success');
-  loadClientPhases(clientId);
+  const phaseOrder = ['design','study','execution'];
+  const idx = phaseOrder.indexOf(currentPhase);
+  const nextPhase = phaseOrder[idx + 1];
+  if (nextPhase) {
+    const nextLabel = PHASE_META[nextPhase].label;
+    if (confirm(`هل سيكمل العميل إلى مرحلة ${nextLabel}؟`)) {
+      await post(`/api/clients/${clientId}/phases/activate`, { phase: nextPhase });
+      toast(`تم تفعيل مرحلة ${nextLabel} ✅`, 'success');
+    }
+  }
+  loadClientDetail(clientId);
 }
 
 async function toggleItem(itemId, clientId, currentStatus, itemDesc, itemTotal, clientPhone, clientName) {
