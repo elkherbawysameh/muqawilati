@@ -320,6 +320,15 @@ app.post('/api/clients/:id/payments', authenticate, async (req, res) => {
   res.json({ id });
 });
 
+app.put('/api/payments/:id', authenticate, async (req, res) => {
+  const { amount, payment_date, notes } = req.body;
+  await pool.query(
+    'UPDATE contract_payments SET amount=$1, payment_date=$2, notes=$3 WHERE id=$4 AND organization_id=$5',
+    [amount, payment_date, notes || '', req.params.id, req.orgId]
+  );
+  res.json({ message: 'Updated' });
+});
+
 app.delete('/api/payments/:id', authenticate, async (req, res) => {
   await pool.query('DELETE FROM contract_payments WHERE id=$1 AND organization_id=$2', [req.params.id, req.orgId]);
   res.json({ message: 'Deleted' });

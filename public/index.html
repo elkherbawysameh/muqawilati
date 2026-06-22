@@ -560,13 +560,16 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
 <!-- MODALS -->
 <!-- Client Modal -->
 <div class="modal-overlay" id="clientModal">
-  <div class="modal">
+  <div class="modal" style="max-width:560px">
     <div class="modal-header">
       <h2 id="clientModalTitle">إضافة عميل جديد</h2>
       <button class="btn-icon" onclick="closeModal('clientModal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="clientId">
+
+      <!-- ── البيانات الأساسية ── -->
+      <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase">① البيانات الأساسية</div>
       <div class="form-group">
         <label class="form-label">اسم العميل *</label>
         <input class="form-control" id="clientName" placeholder="الاسم الكامل">
@@ -581,22 +584,51 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
           <input class="form-control" id="clientLocation" placeholder="المدينة / المنطقة">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">طريقة الدفع</label>
-        <select class="form-control" id="clientPaymentMethod" onchange="toggleAdvanceField()">
-          <option value="installments">دفعات على مراحل</option>
-          <option value="upfront">مقدم كامل</option>
-          <option value="on_completion">عند الانتهاء</option>
-        </select>
-      </div>
-      <div class="form-group" id="advanceGroup">
-        <label class="form-label">نسبة الدفعة المقدمة %</label>
-        <input class="form-control" id="clientAdvance" type="number" placeholder="مثال: 30" min="0" max="100" step="1">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">طريقة الدفع</label>
+          <select class="form-control" id="clientPaymentMethod" onchange="toggleAdvanceField()">
+            <option value="installments">دفعات على مراحل</option>
+            <option value="upfront">مقدم كامل</option>
+            <option value="on_completion">عند الانتهاء</option>
+          </select>
+        </div>
+        <div class="form-group" id="advanceGroup">
+          <label class="form-label">نسبة المقدم %</label>
+          <input class="form-control" id="clientAdvance" type="number" placeholder="مثال: 30" min="0" max="100" step="1">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">ملاحظات</label>
         <textarea class="form-control" id="clientNotes" rows="2" placeholder="أي ملاحظات إضافية..."></textarea>
       </div>
+
+      <!-- ── المراحل (تظهر فقط عند إضافة عميل جديد) ── -->
+      <div id="clientModalPhasesSection">
+        <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase">② المرحلة التي تبدأ بها</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px" id="phaseOptDesign">
+            <input type="checkbox" id="phaseDesign" onchange="highlightPhaseOpt('phaseOptDesign',this.checked)"> 🎨 تصميم
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px" id="phaseOptStudy">
+            <input type="checkbox" id="phaseStudy" onchange="highlightPhaseOpt('phaseOptStudy',this.checked)"> 📊 دراسة وتسعير
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px" id="phaseOptExecution">
+            <input type="checkbox" id="phaseExecution" onchange="highlightPhaseOpt('phaseOptExecution',this.checked)"> 🏗️ تنفيذ
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;background:var(--primary-light)" id="phaseOptAll">
+            <input type="checkbox" id="phaseAll" onchange="toggleAllPhases(this.checked)"> ⚡ فتح الـ3 مراحل
+          </label>
+        </div>
+
+        <!-- ── بنود العقد الأولية ── -->
+        <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase">③ بنود العقد والأسعار</div>
+        <div id="initItemsList"></div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addInitItem()" style="width:100%;margin-top:6px">＋ إضافة بند</button>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('clientModal')">إلغاء</button>
@@ -654,10 +686,11 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
 <div class="modal-overlay" id="paymentModal">
   <div class="modal">
     <div class="modal-header">
-      <h2>إضافة دفعة مالية</h2>
+      <h2 id="paymentModalTitle">إضافة دفعة مالية</h2>
       <button class="btn-icon" onclick="closeModal('paymentModal')">✕</button>
     </div>
     <div class="modal-body">
+      <input type="hidden" id="paymentId">
       <input type="hidden" id="paymentClientId">
       <div class="form-row">
         <div class="form-group">
@@ -1061,7 +1094,8 @@ function toggleAdvanceField() {
 }
 
 function openClientModal(client) {
-  document.getElementById('clientModalTitle').textContent = client ? 'تعديل بيانات العميل' : 'إضافة عميل جديد';
+  const isEdit = !!client;
+  document.getElementById('clientModalTitle').textContent = isEdit ? 'تعديل بيانات العميل' : 'إضافة عميل جديد';
   document.getElementById('clientId').value = client?.id || '';
   document.getElementById('clientName').value = client?.name || '';
   document.getElementById('clientPhone').value = client?.phone || '';
@@ -1069,8 +1103,63 @@ function openClientModal(client) {
   document.getElementById('clientNotes').value = client?.notes || '';
   document.getElementById('clientPaymentMethod').value = client?.payment_method || 'installments';
   document.getElementById('clientAdvance').value = client?.advance_percentage || '';
+  // Show/hide phases+items section based on new vs edit
+  document.getElementById('clientModalPhasesSection').style.display = isEdit ? 'none' : 'block';
+  if (!isEdit) {
+    // Reset phase checkboxes
+    ['phaseDesign','phaseStudy','phaseExecution','phaseAll'].forEach(id => {
+      document.getElementById(id).checked = false;
+    });
+    ['phaseOptDesign','phaseOptStudy','phaseOptExecution','phaseOptAll'].forEach(id => {
+      document.getElementById(id).style.borderColor = 'var(--border)';
+      document.getElementById(id).style.background = id==='phaseOptAll' ? 'var(--primary-light)' : '';
+    });
+    document.getElementById('initItemsList').innerHTML = '';
+  }
   toggleAdvanceField();
   openModal('clientModal');
+}
+
+function highlightPhaseOpt(optId, checked) {
+  const el = document.getElementById(optId);
+  el.style.borderColor = checked ? 'var(--primary)' : 'var(--border)';
+  el.style.background = checked ? 'var(--primary-light)' : '';
+}
+
+function toggleAllPhases(checked) {
+  ['Design','Study','Execution'].forEach(p => {
+    document.getElementById('phase'+p).checked = checked;
+    highlightPhaseOpt('phaseOpt'+p, checked);
+  });
+  highlightPhaseOpt('phaseOptAll', checked);
+}
+
+let _initItems = [];
+function addInitItem() {
+  const idx = _initItems.length;
+  _initItems.push({ desc:'', qty:1, unit:'بند', price:0, phase:'' });
+  renderInitItems();
+}
+function removeInitItem(idx) {
+  _initItems.splice(idx, 1);
+  renderInitItems();
+}
+function updateInitItem(idx, field, val) {
+  _initItems[idx][field] = val;
+}
+function renderInitItems() {
+  const container = document.getElementById('initItemsList');
+  if (!_initItems.length) { container.innerHTML = ''; return; }
+  container.innerHTML = _initItems.map((it, i) => `
+    <div style="display:grid;grid-template-columns:2fr 60px 80px 90px 32px;gap:4px;margin-bottom:6px;align-items:center">
+      <input class="form-control" placeholder="وصف البند" value="${it.desc}" oninput="updateInitItem(${i},'desc',this.value)" style="font-size:12px">
+      <input class="form-control" type="number" placeholder="كمية" value="${it.qty}" oninput="updateInitItem(${i},'qty',parseFloat(this.value)||1)" style="font-size:12px">
+      <input class="form-control" placeholder="وحدة" value="${it.unit}" oninput="updateInitItem(${i},'unit',this.value)" style="font-size:12px">
+      <input class="form-control" type="number" placeholder="سعر" value="${it.price||''}" oninput="updateInitItem(${i},'price',parseFloat(this.value)||0)" style="font-size:12px">
+      <button class="btn-icon" onclick="removeInitItem(${i})" style="color:var(--danger);font-size:16px">✕</button>
+    </div>
+  `).join('') +
+  `<div style="font-size:11px;color:var(--text3);margin-top:4px">الوصف · الكمية · الوحدة · السعر</div>`;
 }
 
 async function saveClient() {
@@ -1087,14 +1176,34 @@ async function saveClient() {
   try {
     if (id) {
       await put(`/api/clients/${id}`, data);
-      toast('تم تحديث بيانات العميل', 'success');
+      toast('تم تحديث بيانات العميل ✅', 'success');
       closeModal('clientModal');
       loadClientDetail(id);
     } else {
       const res = await post('/api/clients', data);
+      const newId = res.id;
+      // Activate selected phases
+      const phaseMap = [['phaseDesign','design'],['phaseStudy','study'],['phaseExecution','execution']];
+      for (const [checkId, phase] of phaseMap) {
+        if (document.getElementById(checkId).checked) {
+          await post(`/api/clients/${newId}/phases/activate`, { phase }).catch(()=>{});
+        }
+      }
+      // Create initial items
+      for (const it of _initItems) {
+        if (!it.desc.trim()) continue;
+        await post(`/api/clients/${newId}/items`, {
+          description: it.desc.trim(),
+          quantity: it.qty || 1,
+          unit: it.unit || 'بند',
+          unit_price: it.price || 0,
+          phase: '',
+        }).catch(()=>{});
+      }
+      _initItems = [];
       closeModal('clientModal');
-      toast('تم إضافة العميل ✅ — أضف المرحلة والبنود الآن', 'success');
-      navigate('client', res.id);
+      toast('تم إضافة العميل والبنود ✅', 'success');
+      navigate('client', newId);
     }
   } catch(e) { toast(e.message, 'error'); }
 }
@@ -1250,7 +1359,8 @@ async function loadClientDetail(id) {
                   <div style="font-size:14px;font-weight:600;color:var(--success)">${fmt(p.amount)} ج.م</div>
                   <div style="font-size:11px;color:var(--text3)">${fmtDate(p.payment_date)} ${p.notes?'· '+p.notes:''}</div>
                 </div>
-                <button class="btn-icon btn-sm" onclick="deletePayment(${p.id},${id})">🗑️</button>
+                <button class="btn-icon btn-sm" onclick="openPaymentModal('${id}',${JSON.stringify(p).replace(/"/g,'&quot;')})" title="تعديل">✏️</button>
+                <button class="btn-icon btn-sm" onclick="deletePayment('${p.id}','${id}')" title="حذف">🗑️</button>
               </div>`).join('') +
             `</div>
             <div class="summary-box" style="margin:12px 16px 16px">
@@ -1465,23 +1575,29 @@ async function deleteItem(itemId, clientId) {
   loadClientDetail(clientId);
 }
 
-function openPaymentModal(clientId) {
+function openPaymentModal(clientId, payment) {
+  document.getElementById('paymentModalTitle').textContent = payment ? 'تعديل الدفعة' : 'إضافة دفعة مالية';
+  document.getElementById('paymentId').value = payment?.id || '';
   document.getElementById('paymentClientId').value = clientId;
-  document.getElementById('payAmount').value = '';
-  document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('payNotes').value = '';
+  document.getElementById('payAmount').value = payment?.amount || '';
+  document.getElementById('payDate').value = payment?.payment_date ? payment.payment_date.split('T')[0] : new Date().toISOString().split('T')[0];
+  document.getElementById('payNotes').value = payment?.notes || '';
   openModal('paymentModal');
 }
 
 async function savePayment() {
+  const payId = document.getElementById('paymentId').value;
   const clientId = document.getElementById('paymentClientId').value;
   const amount = parseFloat(document.getElementById('payAmount').value);
   if (!amount || amount <= 0) { toast('أدخل مبلغاً صحيحاً', 'error'); return; }
-  await post(`/api/clients/${clientId}/payments`, {
-    amount, payment_date: document.getElementById('payDate').value,
-    notes: document.getElementById('payNotes').value,
-  });
-  toast('تم تسجيل الدفعة ✅', 'success');
+  const body = { amount, payment_date: document.getElementById('payDate').value, notes: document.getElementById('payNotes').value };
+  if (payId) {
+    await put(`/api/payments/${payId}`, body);
+    toast('تم تحديث الدفعة ✅', 'success');
+  } else {
+    await post(`/api/clients/${clientId}/payments`, body);
+    toast('تم تسجيل الدفعة ✅', 'success');
+  }
   closeModal('paymentModal');
   loadClientDetail(clientId);
 }
