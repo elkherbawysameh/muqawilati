@@ -305,12 +305,41 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: 8px; }
 
+/* ── MOBILE HAMBURGER ── */
+.hamburger { display:none; background:none; border:none; font-size:22px; cursor:pointer; color:var(--text); padding:4px 8px; }
+.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:99; }
+
 @media (max-width: 768px) {
-  :root { --sidebar-w: 200px; }
+  :root { --sidebar-w: 260px; }
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
   .two-col, .three-col { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .content { padding: 16px; }
+  .content { padding: 12px; }
+  /* Sidebar hidden by default on mobile */
+  .sidebar { transform: translateX(100%); transition: transform .3s; z-index: 200; }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay.open { display:block; }
+  .main { margin-right: 0 !important; }
+  .hamburger { display:block; }
+  .topbar { padding: 10px 14px; }
+  .topbar-title { font-size: 15px; }
+  /* Client cards */
+  .client-card { flex-wrap: wrap; gap: 10px; }
+  .client-stats { width: 100%; display: flex; gap: 12px; flex-wrap: wrap; }
+  /* Phases grid → single col on small phones */
+  #clientPhasesSection [style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
+  /* Modals full screen */
+  .modal { width: 95vw; max-height: 92vh; margin: 4vh auto; }
+  /* Items row */
+  .item-row { flex-wrap: wrap; }
+  .item-price { min-width: auto; }
+  /* Payment cards */
+  [style*="grid-template-columns:repeat(auto-fit,minmax(160px"] { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .topbar-actions { gap: 4px; }
+  .topbar-actions .btn { font-size: 12px; padding: 6px 10px; }
 }
 </style>
 </head>
@@ -353,32 +382,35 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
 </div>
 
 <div class="app" id="app" style="display:none">
+  <!-- SIDEBAR OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="mainSidebar">
     <div class="sidebar-logo">
       <h1>🏗️ مقاولاتي</h1>
       <p id="orgNameLabel" style="color:var(--primary);font-weight:600;font-size:12px;margin-top:2px"></p>
     </div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" onclick="navigate('dashboard')">
+      <button class="nav-item active" onclick="navigate('dashboard');closeSidebar()">
         <span class="icon">📊</span> لوحة التحكم
       </button>
-      <button class="nav-item" onclick="navigate('clients')">
+      <button class="nav-item" onclick="navigate('clients');closeSidebar()">
         <span class="icon">👥</span> العملاء
       </button>
-      <button class="nav-item" onclick="navigate('workers')">
+      <button class="nav-item" onclick="navigate('workers');closeSidebar()">
         <span class="icon">👷</span> العمال والصناعية
       </button>
-      <button class="nav-item" onclick="navigate('invoices')">
+      <button class="nav-item" onclick="navigate('invoices');closeSidebar()">
         <span class="icon">🧾</span> الفواتير
       </button>
-      <button class="nav-item" onclick="navigate('prices')">
+      <button class="nav-item" onclick="navigate('prices');closeSidebar()">
         <span class="icon">💰</span> أسعار الخامات
       </button>
-      <button class="nav-item" onclick="navigate('analytics')">
+      <button class="nav-item" onclick="navigate('analytics');closeSidebar()">
         <span class="icon">📊</span> تحليلات المراحل
       </button>
-      <button class="nav-item" onclick="navigate('settings')">
+      <button class="nav-item" onclick="navigate('settings');closeSidebar()">
         <span class="icon">⚙️</span> الإعدادات
       </button>
     </nav>
@@ -399,7 +431,10 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
-      <div class="topbar-title" id="pageTitle">لوحة التحكم</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <div class="topbar-title" id="pageTitle">لوحة التحكم</div>
+      </div>
       <div class="topbar-actions" id="topbarActions"></div>
     </div>
     <div class="content">
@@ -884,6 +919,15 @@ function openLightbox(src) {
 }
 function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
 
+function toggleSidebar() {
+  document.getElementById('mainSidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('mainSidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
 function toggleDark(on) {
   document.body.classList.toggle('dark', on);
   state.darkMode = on;
@@ -1041,10 +1085,17 @@ async function saveClient() {
   };
   if (!data.name) { toast('أدخل اسم العميل', 'error'); return; }
   try {
-    if (id) { await put(`/api/clients/${id}`, data); toast('تم تحديث بيانات العميل', 'success'); }
-    else { await post('/api/clients', data); toast('تم إضافة العميل', 'success'); }
-    closeModal('clientModal');
-    if (id) loadClientDetail(id); else renderClients();
+    if (id) {
+      await put(`/api/clients/${id}`, data);
+      toast('تم تحديث بيانات العميل', 'success');
+      closeModal('clientModal');
+      loadClientDetail(id);
+    } else {
+      const res = await post('/api/clients', data);
+      closeModal('clientModal');
+      toast('تم إضافة العميل ✅ — أضف المرحلة والبنود الآن', 'success');
+      navigate('client', res.id);
+    }
   } catch(e) { toast(e.message, 'error'); }
 }
 
