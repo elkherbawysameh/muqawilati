@@ -547,8 +547,20 @@ input:checked + .toggle-slider:before { transform: translateX(-18px); }
         </div>
       </div>
       <div class="form-group">
+        <label class="form-label">طريقة الدفع</label>
+        <select class="form-control" id="clientPaymentMethod" onchange="toggleAdvanceField()">
+          <option value="installments">دفعات على مراحل</option>
+          <option value="upfront">مقدم كامل</option>
+          <option value="on_completion">عند الانتهاء</option>
+        </select>
+      </div>
+      <div class="form-group" id="advanceGroup">
+        <label class="form-label">نسبة الدفعة المقدمة %</label>
+        <input class="form-control" id="clientAdvance" type="number" placeholder="مثال: 30" min="0" max="100" step="1">
+      </div>
+      <div class="form-group">
         <label class="form-label">ملاحظات</label>
-        <textarea class="form-control" id="clientNotes" rows="3" placeholder="أي ملاحظات إضافية..."></textarea>
+        <textarea class="form-control" id="clientNotes" rows="2" placeholder="أي ملاحظات إضافية..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -994,6 +1006,11 @@ async function renderClients() {
   }).join('');
 }
 
+function toggleAdvanceField() {
+  const method = document.getElementById('clientPaymentMethod').value;
+  document.getElementById('advanceGroup').style.display = method === 'installments' ? '' : 'none';
+}
+
 function openClientModal(client) {
   document.getElementById('clientModalTitle').textContent = client ? 'تعديل بيانات العميل' : 'إضافة عميل جديد';
   document.getElementById('clientId').value = client?.id || '';
@@ -1001,6 +1018,9 @@ function openClientModal(client) {
   document.getElementById('clientPhone').value = client?.phone || '';
   document.getElementById('clientLocation').value = client?.location || '';
   document.getElementById('clientNotes').value = client?.notes || '';
+  document.getElementById('clientPaymentMethod').value = client?.payment_method || 'installments';
+  document.getElementById('clientAdvance').value = client?.advance_percentage || '';
+  toggleAdvanceField();
   openModal('clientModal');
 }
 
@@ -1011,6 +1031,8 @@ async function saveClient() {
     phone: document.getElementById('clientPhone').value.trim(),
     location: document.getElementById('clientLocation').value.trim(),
     notes: document.getElementById('clientNotes').value.trim(),
+    payment_method: document.getElementById('clientPaymentMethod').value,
+    advance_percentage: parseFloat(document.getElementById('clientAdvance').value) || 0,
   };
   if (!data.name) { toast('أدخل اسم العميل', 'error'); return; }
   try {
@@ -1060,6 +1082,12 @@ async function loadClientDetail(id) {
             ${c.location ? `<span>📍 ${c.location}</span>` : ''}
           </div>
           ${c.notes ? `<div style="margin-top:6px;font-size:13px;color:var(--text2)">📝 ${c.notes}</div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px">
+            <span style="background:var(--primary-light);color:var(--primary);padding:3px 10px;border-radius:20px;font-weight:600">
+              💳 ${{upfront:'مقدم كامل',installments:'دفعات على مراحل',on_completion:'عند الانتهاء'}[c.payment_method]||'دفعات'}
+            </span>
+            ${c.advance_percentage > 0 ? `<span style="background:var(--warning-light);color:var(--warning);padding:3px 10px;border-radius:20px;font-weight:600">مقدم ${c.advance_percentage}%</span>` : ''}
+          </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${c.phone ? `<a href="${waLink}" target="_blank" class="btn btn-wa btn-sm">💬 واتساب</a>` : ''}
@@ -1083,14 +1111,20 @@ async function loadClientDetail(id) {
       <div class="stat-card orange">
         <div class="stat-icon">⏳</div>
         <div class="stat-value">${fmt(remaining)} ج.م</div>
-        <div class="stat-label">المتبقي</div>
+        <div class="stat-label">المتبقي للتحصيل</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon">🏗️</div>
-        <div class="stat-value">${prog}%</div>
-        <div class="stat-label">نسبة الإنجاز</div>
+      <div class="stat-card ${totalDone - totalPaid > 0 ? 'red' : 'green'}">
+        <div class="stat-icon">${totalDone - totalPaid > 0 ? '🔔' : '🎉'}</div>
+        <div class="stat-value">${fmt(Math.max(0, totalDone - totalPaid))} ج.م</div>
+        <div class="stat-label">مستحق التحصيل الآن</div>
       </div>
     </div>
+    ${totalDone - totalPaid > 0 && c.phone ? `
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="font-size:14px;font-weight:600;color:#92400e">🔔 يوجد مبلغ مستحق للتحصيل: <span style="color:#d97706">${fmt(totalDone - totalPaid)} ج.م</span></div>
+      <a href="https://wa.me/2${c.phone.replace(/^0/,'')}?text=${encodeURIComponent(`السلام عليكم ${c.name}،\n\nنود إعلامكم بأنه تم إنجاز بنود بقيمة ${fmt(totalDone)} ج.م.\nالمبلغ المستحق للتحصيل: ${fmt(totalDone - totalPaid)} ج.م\n\nنرجو التواصل لتحديد موعد التحصيل.\nشكراً 🏗️`)}" target="_blank" class="btn btn-wa btn-sm">💬 إشعار واتساب</a>
+    </div>` : ''}
+    <div class="stats-grid" style="margin-bottom:20px;display:none"><!-- placeholder --></div>
 
     <!-- PHASES STEPPER -->
     <div id="clientPhasesSection" class="card mb-16"></div>
@@ -1103,7 +1137,7 @@ async function loadClientDetail(id) {
           <button class="btn btn-primary btn-sm" onclick="openItemModal(${id})">＋ إضافة بند</button>
         </div>
         <div class="card-body" style="padding:0">
-          ${renderItemsByPhase(c.items, id)}
+          ${renderItemsByPhase(c.items, id, c.phone, c.name)}
         </div>
       </div>
 
@@ -1167,7 +1201,7 @@ const PHASE_META = {
 const PHASE_STATUS_LABEL = { not_started: 'لم تبدأ', active: 'جارية', completed: 'مكتملة', skipped: 'متخطاة' };
 const PHASE_STATUS_COLOR = { not_started: '#a0aec0', active: '#3b82f6', completed: '#10b981', skipped: '#f59e0b' };
 
-function renderItemsByPhase(items, clientId) {
+function renderItemsByPhase(items, clientId, clientPhone, clientName) {
   if (!items.length) return '<div class="empty-state" style="padding:30px"><div class="empty-icon">📋</div><p>لا توجد بنود بعد</p></div>';
   const phaseOrder = ['design', 'study', 'execution', null];
   const groups = {};
@@ -1190,7 +1224,7 @@ function renderItemsByPhase(items, clientId) {
     g.forEach(it => {
       const total = it.unit_price * it.quantity;
       html += `<div class="item-row">
-        <div class="item-check ${it.status==='done'?'done':''}" onclick="toggleItem('${it.id}','${clientId}','${it.status}')" title="${it.status==='done'?'تم':'بانتظار'}">
+        <div class="item-check ${it.status==='done'?'done':''}" onclick="toggleItem('${it.id}','${clientId}','${it.status}','${it.description.replace(/'/g,"\\'")}',${it.unit_price*it.quantity},'${clientPhone||''}','${clientName||''}')" title="${it.status==='done'?'تم':'بانتظار'}">
           ${it.status==='done'?'✓':''}
         </div>
         <div class="item-desc ${it.status==='done'?'done':''}">
@@ -1264,10 +1298,19 @@ async function completePhase(phaseId, clientId) {
   loadClientPhases(clientId);
 }
 
-async function toggleItem(itemId, clientId, currentStatus) {
+async function toggleItem(itemId, clientId, currentStatus, itemDesc, itemTotal, clientPhone, clientName) {
   const newStatus = currentStatus === 'done' ? 'pending' : 'done';
   await put(`/api/items/${itemId}`, { status: newStatus });
-  if (newStatus === 'done') toast('تم وضع علامة الإنجاز ✅', 'success');
+  if (newStatus === 'done') {
+    toast('تم وضع علامة الإنجاز ✅', 'success');
+    if (clientPhone) {
+      const msg = encodeURIComponent(`السلام عليكم ${clientName}،\n\nتم إنجاز البند: "${itemDesc}"\nقيمة البند: ${itemTotal} ج.م\n\nنرجو التواصل لتحديد موعد التحصيل.\nشكراً لتعاملكم معنا 🏗️`);
+      const waUrl = `https://wa.me/2${clientPhone.replace(/^0/,'')}?text=${msg}`;
+      if (confirm(`تم الإنجاز ✅\nهل تريد إرسال إشعار واتساب للعميل ${clientName}؟`)) {
+        window.open(waUrl, '_blank');
+      }
+    }
+  }
   loadClientDetail(clientId);
 }
 

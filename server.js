@@ -247,22 +247,22 @@ app.get('/api/clients/:id', authenticate, async (req, res) => {
 });
 
 app.post('/api/clients', authenticate, async (req, res) => {
-  const { name, phone, email, location, notes } = req.body;
+  const { name, phone, email, location, notes, payment_method, advance_percentage } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
   const id = randomUUID();
   await pool.query(
-    'INSERT INTO clients(id,organization_id,name,phone,email,location,notes) VALUES($1,$2,$3,$4,$5,$6,$7)',
-    [id, req.orgId, name, phone||'', email||'', location||'', notes||'']
+    'INSERT INTO clients(id,organization_id,name,phone,email,location,notes,payment_method,advance_percentage) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [id, req.orgId, name, phone||'', email||'', location||'', notes||'', payment_method||'installments', advance_percentage||0]
   );
   log(req.orgId, req.user.user_id, 'client', id, 'created', { name });
   res.json({ id });
 });
 
 app.put('/api/clients/:id', authenticate, async (req, res) => {
-  const { name, phone, email, location, notes } = req.body;
+  const { name, phone, email, location, notes, payment_method, advance_percentage } = req.body;
   await pool.query(
-    'UPDATE clients SET name=$1,phone=$2,email=$3,location=$4,notes=$5,updated_at=now() WHERE id=$6 AND organization_id=$7',
-    [name, phone||'', email||'', location||'', notes||'', req.params.id, req.orgId]
+    'UPDATE clients SET name=$1,phone=$2,email=$3,location=$4,notes=$5,payment_method=$6,advance_percentage=$7,updated_at=now() WHERE id=$8 AND organization_id=$9',
+    [name, phone||'', email||'', location||'', notes||'', payment_method||'installments', advance_percentage||0, req.params.id, req.orgId]
   );
   res.json({ message: 'Updated' });
 });
